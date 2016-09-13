@@ -40,6 +40,10 @@
 #include <linux/sched.h>
 #include <linux/of_fdt.h>
 
+#ifdef CONFIG_LLCON
+#include <video/llcon.h>
+#endif
+
 /* fixme */
 #include <asm/tlbflush.h>
 #include <../../mm/mm.h>
@@ -384,6 +388,11 @@ mem_remove:
 		else
 			pr_info("Node %s removed memory %x-%x\n", uname,
 				memory_start, memory_start+memory_size);
+#ifdef CONFIG_LLCON
+		if (!ret && strcmp(uname, "qcom,mdss_fb_primary") == 0) {
+			llcon_set_fb_addr((void *)memory_start, memory_size);
+		}
+#endif
 	}
 
 out:
