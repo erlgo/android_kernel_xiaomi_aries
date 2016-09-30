@@ -3543,8 +3543,8 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		/*Pass a sample PS string */
 
 		memset(tx_ps.ps_data, 0, MAX_PS_LENGTH);
-		bytes_to_copy = min(ctrl->controls[0].size,
-			(size_t)MAX_PS_LENGTH);
+		bytes_to_copy = min_t(size_t, ctrl->controls[0].size,
+					MAX_PS_LENGTH);
 		data = (ctrl->controls[0]).string;
 
 		if (copy_from_user(tx_ps.ps_data,
@@ -3568,7 +3568,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 		break;
 	case V4L2_CID_RDS_TX_RADIO_TEXT:
 		bytes_to_copy =
-		    min((ctrl->controls[0]).size, (size_t)MAX_RT_LENGTH);
+		    min_t(size_t, (ctrl->controls[0]).size, MAX_RT_LENGTH);
 		data = (ctrl->controls[0]).string;
 
 		memset(tx_rt.rt_data, 0, MAX_RT_LENGTH);
@@ -4178,34 +4178,33 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 		radio->riva_data_req.cmd_params.start_addr = ctrl->value;
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RIVA_ACCS_LEN:
-		if (is_valid_peek_len(ctrl->value)) {
+		if ((ctrl->value > 0) &&
+			(ctrl->value <= MAX_RIVA_PEEK_RSP_SIZE)) {
 			radio->riva_data_req.cmd_params.length = ctrl->value;
 		} else {
+			FMDERR("Length %d is more than the buffer size %d\n",
+			ctrl->value, MAX_RIVA_PEEK_RSP_SIZE);
 			retval = -EINVAL;
-			FMDERR("%s: riva access len is not valid\n", __func__);
-			goto END;
 		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_RIVA_POKE:
-		if (radio->riva_data_req.cmd_params.length <=
-		    MAX_RIVA_PEEK_RSP_SIZE) {
-			retval = copy_from_user(
-					radio->riva_data_req.data,
-					(void *)ctrl->value,
-					radio->riva_data_req.cmd_params.length);
-			if (retval != 0) {
-				retval = -retval;
-				goto END;
+		if (radio->riva_data_req.cmd_params.length <= MAX_RIVA_PEEK_RSP_SIZE) {
+			retval = copy_from_user(radio->riva_data_req.data,
+						(void *)ctrl->value,
+						radio->riva_data_req.cmd_params.length);
+			if (retval == 0) {
+				radio->riva_data_req.cmd_params.subopcode =
+									RIVA_POKE_OPCODE;
+				retval = hci_poke_data(&radio->riva_data_req,
+							radio->fm_hdev);
+			} else {
+				retval = -EINVAL;
 			}
-			radio->riva_data_req.cmd_params.subopcode =
-						RIVA_POKE_OPCODE;
-			retval = hci_poke_data(
-					&radio->riva_data_req,
-					radio->fm_hdev);
 		} else {
-			FMDERR("Can not copy into driver's buffer.\n");
+			FMDERR("Can not copy into driver's buffer. Length %d is more than"
+			 "the buffer size %d\n", radio->riva_data_req.cmd_params.length,
+				MAX_RIVA_PEEK_RSP_SIZE);
 			retval = -EINVAL;
-			goto END;
 		}
 		break;
 	case V4L2_CID_PRIVATE_IRIS_SSBI_ACCS_ADDR:
