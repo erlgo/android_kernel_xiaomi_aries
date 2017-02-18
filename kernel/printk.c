@@ -42,10 +42,6 @@
 #include <linux/notifier.h>
 #include <linux/rculist.h>
 
-#ifdef CONFIG_LLCON
-#include <video/llcon.h>
-#endif
-
 #include <asm/uaccess.h>
 
 #ifdef CONFIG_MSM_RTB
@@ -738,9 +734,6 @@ static void call_console_drivers(unsigned start, unsigned end)
 
 static void emit_log_char(char c)
 {
-#ifdef CONFIG_LLCON
-	llcon_emit_log_char(c);
-#endif
 	LOG_BUF(log_end) = c;
 	log_end++;
 	if (log_end - log_start > log_buf_len)
